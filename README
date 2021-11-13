@@ -1,0 +1,45 @@
+# Project 2: Nondeterministic Finite Automata
+
+* Author: Nathan Maroko
+* Class: CS361 Section 2
+* Semester: Fall 2021
+
+## Overview
+
+This program modals a nondeterministic finite automata. The user can input
+a properly formatted file to generate a five-tuple from the machine.
+
+## Compiling and Using
+
+Commands to run to compile the project:
+
+javac fa/nfa/NFADriver.java
+java fa.nfa.NFADriver 'testfile-path'
+
+testfile-path must formatted as such to be properly put into machine:
+The first line: final states seperated by 1 space (must be a single character)
+The second line: the name of the start state
+The third line: all non-final states/non-start state seperated by a space character.
+The fourth line: Transitions seperated by whitespace formatted: {fromState}{transitionCharacter}{toState} (omit brackets)
+Starting from line 5 are test strings you can include, each test string is seperated by a line.
+
+## Discussion
+
+The biggest issue I faced with this project was understanding how breadth-first search was used to generate the NFA.
+I played around with it for a while until I understood that I am supposed to start at the initial state and then walk
+through the machine using the set of transition states. Once I figured that out, things started moving a lot smoother.
+I had a few hiccups when it came to keeping track of certain states, but I wrote a couple helper methods that did a lot
+of work for me. Personally, I did not enjoy this project very much. It was interesting to see how we could implement
+a NFA in Java, but overall I thought the whole process was annoying and kind of hard to follow. I commented as much
+as I could with the getDFA method but I still felt like my code was hard to understand. I hope I made enough sense with it.
+If I were to do anything different, it would be to have done this with a partner.
+
+## Testing
+
+In order to test this project I used the test files given to me. Other than that, I used print statements to further
+test that data was being stored properly.
+
+## Sources used
+
+I used the documentation pages for Sets and Maps to complete this project. As well I used
+geeksforgeeks implementation of depth-first search and breadth-first search.

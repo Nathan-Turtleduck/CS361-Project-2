@@ -6,6 +6,11 @@ import java.util.Set;
 
 import fa.State;
 
+/**
+ * @author Nathan Maroko
+ * Date: 11/13/2021
+ * Desc: This class defines a State for a Non-Deterministic Finite Automata
+ */
 public class NFAState extends State{
 
     private boolean isFinal;

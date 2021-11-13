@@ -10,6 +10,11 @@ import java.util.Set;
 import fa.State;
 import fa.dfa.DFA;
 
+/**
+ * @author Nathan Maroko
+ * Date: 11/13/2021
+ * Desc: This class defines a Non-Deterministic Finite Automata
+ */
 public class NFA implements NFAInterface{
 
     private Set<NFAState> states;
