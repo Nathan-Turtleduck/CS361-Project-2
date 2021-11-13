@@ -112,7 +112,8 @@ public class NFA implements NFAInterface{
         Map<NFAState,Set<NFAState>> eClosures = new HashMap<NFAState,Set<NFAState>>(); //Keep track of eClosures of each state
         Set<Set<NFAState>> includedStates = new LinkedHashSet<Set<NFAState>>(); //Keep track of what states we have in the new machine
         Queue<Set<NFAState>> queue = new LinkedList<Set<NFAState>>(); //Queue used for the Breadth-First Traversal
-        Set<NFAState> visited = new LinkedHashSet<NFAState>(); //Keep track of what states we have visited
+        Set<Set<NFAState>> visited = new LinkedHashSet<Set<NFAState>>(); //Keep track of what states we have visited
+        this.containsEmpty = false; //Reset contains empty to false
 
         DFA convertedDFA = new DFA();
         NFAState start = checkIfExists(this.start.getName());
@@ -121,7 +122,7 @@ public class NFA implements NFAInterface{
         convertedDFA.addStartState(eClosureStart.toString());
         includedStates.add(eClosureStart);
 
-        visited.add(start);
+        visited.add(eClosureStart);
 
         for(NFAState s: this.states){ //Calculate all eClosures
             eClosures.put(s, eClosure(s)); //Map current state to eclosure value
@@ -130,7 +131,6 @@ public class NFA implements NFAInterface{
 
         //Breadth-First Traversal of NFA
         for(Character onSymb: this.ordAbc){ //Get Set of states starting with entry state
-            Set<NFAState> toStates = start.getToStates(onSymb);
 
             Set<NFAState> toStateDFA = new LinkedHashSet<NFAState>();
             for(NFAState current: eClosureStart){ //Get all of the to states from the singletons that make up the currentState
@@ -140,7 +140,7 @@ public class NFA implements NFAInterface{
                 }
             }
 
-            if(onSymb == 'e'){// If the onSymb is e and null is returned then continue
+            if(onSymb == 'e'){// If the onSymb is e then ignore
                 continue;
             }else if(toStateDFA.isEmpty() && onSymb != 'e'){ //Else, add the empty state as a transition from the start state
                 if(!this.containsEmpty){ //If empty state isn't in machine yet
@@ -154,6 +154,7 @@ public class NFA implements NFAInterface{
                 }
             }
 
+            //Now we need to handle the transitions that the current state is going to take
             Set<NFAState> transition = new LinkedHashSet<NFAState>();
             for(NFAState state: toStateDFA){ //Check each eClosure for each character in the set
                 transition.addAll(eClosures.get(state));
@@ -171,18 +172,23 @@ public class NFA implements NFAInterface{
                 includedStates.add(transition); //Add the state to the included states
                 convertedDFA.addTransition(eClosureStart.toString(), onSymb, transition.toString()); //Add a transition from the currentState to transitionState
             }
-            queue.add(toStates);
+            queue.add(transition);
         }
 
 
+        //While we still have new states popping in the queue
         while(!queue.isEmpty()){
             Set<NFAState> s = queue.poll(); //Pull out first set of states in queue
-            for(NFAState currentState: s){ //Walk through set of states
-                if(!checkIfVisited(visited, currentState)){ //If we haven't visited the currentState
-                    visited.add(currentState); //Mark this state as visited
+
+                if(!checkIfVisitedQueue(visited, s)){ //If we haven't visited the currentState
+                    visited.add(s); //Mark this state as visited
 
                     //Check if the eClosure of the state is included in the constructed DFA
-                    Set<NFAState> currentEClosure = eClosure(currentState);
+                    Set<NFAState> currentEClosure = new LinkedHashSet<NFAState>();
+                    for(NFAState state: s){
+                        currentEClosure.addAll(eClosure(state));
+                    }
+
                     if(includedStates.contains(currentEClosure)){ //If included in DFA already
                         currentEClosure = getIncludedState(includedStates, currentEClosure); //Find the exact string name of the currentEClosure
                     }else{
@@ -194,8 +200,8 @@ public class NFA implements NFAInterface{
                         includedStates.add(currentEClosure);
                     }
 
+                    //This section handles the transitions that the current state will take
                     for(Character onSymb: this.ordAbc){ //Walk through each possible transition on currentState
-                        Set<NFAState> toState = currentState.getToStates(onSymb);
 
                         Set<NFAState> toStateDFA = new LinkedHashSet<NFAState>();
                         for(NFAState current: currentEClosure){ //Get all of the to states from the singletons that make up the currentState
@@ -204,10 +210,16 @@ public class NFA implements NFAInterface{
                                 toStateDFA.addAll(add);
                             }
                         }
-                        
-                        if(toState == null || onSymb == 'e'){// If the onSymb is e and null is returned then continue
+
+                        Set<NFAState> transition = new LinkedHashSet<NFAState>();
+                        for(NFAState state: toStateDFA){ //Check each eClosure for each character in the set
+                            transition.addAll(eClosures.get(state));
+                        }
+            
+                        //If there is no valid transitions inside transition- we want to add a transition to the empty state
+                        if(onSymb == 'e'){// If the onSymb is e then ignore
                             continue;
-                        }else if(toStateDFA.isEmpty() && onSymb != 'e'){ //Else, add the empty state as a transition from the start state
+                        }else if(transition.isEmpty() && onSymb != 'e'){ //Else, add the empty state as a transition from the start state
                             if(!this.containsEmpty){ //If empty state isn't in machine yet
                                 convertedDFA.addState("[]"); //Create empty state in machine
                                 convertedDFA = addEmptyTransitions(convertedDFA); //Add transitions for each character on empty state
@@ -220,29 +232,23 @@ public class NFA implements NFAInterface{
                             continue;
                         }
 
-                        Set<NFAState> transition = new LinkedHashSet<NFAState>();
-                        for(NFAState state: toStateDFA){ //Check each eClosure for each character in the set
-                            transition.addAll(eClosures.get(state));
-                        }
-            
                         if(includedStates.contains(transition)){ //If the transition state is in DFA already
                             transition = getIncludedState(includedStates, transition); //Find the exact state name in machine
                             convertedDFA.addTransition(currentEClosure.toString(), onSymb, transition.toString()); //Add a transition from the currentState to transitionState
                         }else{ //Transition state is not in DFA
-                            convertedDFA.addState(transition.toString()); //Create the State in the DFA
+                            if(checkIfFinal(transition)){
+                                convertedDFA.addFinalState(transition.toString());
+                            }else{
+                                convertedDFA.addState(transition.toString()); //Create the State in the DFA
+                            }
                             includedStates.add(transition); //Add the state to the included states
                             convertedDFA.addTransition(currentEClosure.toString(), onSymb, transition.toString()); //Add a transition from the currentState to transitionState
                         }
 
-                        queue.add(toState); //Add ToStates to queue
+                        queue.add(transition); //Add ToStates to queue
                     }
                 }
-            }
         }
-        // for(NFAState state: eClosures.keySet()){
-        //     System.out.println(state + ": " + eClosures.get(state));
-        // }
-
         return convertedDFA;
     }
 
@@ -260,6 +266,12 @@ public class NFA implements NFAInterface{
         return eClosure;
     }
 
+    /**
+     * This helper method is called inside eClosure and is called recursively
+     * Implements the depth-first search algorithm
+     * @param s
+     * @param visited
+     */
     private void eClosureHelper(NFAState s, Set<NFAState> visited) {
         Set<NFAState> current = s.getToStates('e');
         if(current == null){
@@ -274,6 +286,12 @@ public class NFA implements NFAInterface{
         }
     }
 
+    /**
+     * A private method that checks if a state has been visited inside eClosureHelper
+     * @param visited
+     * @param state
+     * @return
+     */
     private boolean checkIfVisited(Set<NFAState> visited, NFAState state){
         boolean ret = false;
         for(NFAState s : visited){
@@ -285,6 +303,27 @@ public class NFA implements NFAInterface{
         return ret;
     }
 
+    /**
+     * A private method that checks if the queue has visited a set of states yet
+     * @param visited
+     * @param states
+     * @return true if the set has been visited and false if the set hasnt visited it
+     */
+    private boolean checkIfVisitedQueue(Set<Set<NFAState>> visited, Set<NFAState> states){
+        boolean retBool = false;
+        for(Set<NFAState> current: visited){
+            if(current.equals(states)){
+                retBool = true;
+            }
+        }
+        return retBool;
+    }
+
+    /**
+     * A private method that checks if 
+     * @param name
+     * @return The state if it's found inside the states set
+     */
     private NFAState checkIfExists(String name){
 		NFAState ret = null;
 		for(NFAState s : states){
@@ -296,6 +335,11 @@ public class NFA implements NFAInterface{
 		return ret;
 	}
 
+    /**
+     * A private method that adds a self-transition to the empty state for each character
+     * @param current
+     * @return The modified DFA
+     */
     private DFA addEmptyTransitions(DFA current){
         for(Character c : this.ordAbc){
             if(c != 'e'){
@@ -305,6 +349,12 @@ public class NFA implements NFAInterface{
         return current;
     }
 
+    /**
+     * Finds the state that has been already been added inside the DFA and returns the set
+     * @param includedStates
+     * @param set
+     * @return The Set included inside the DFA
+     */
     private Set<NFAState> getIncludedState(Set<Set<NFAState>> includedStates, Set<NFAState> set){
         for(Set<NFAState> current: includedStates){
             if(current.equals(set)){
@@ -314,6 +364,11 @@ public class NFA implements NFAInterface{
         return null;
     }
 
+    /**
+     * Checks if the set of states contains a final state
+     * @param current
+     * @return true if the set contains a final state or false if the set doesnt contain a final state
+     */
     private boolean checkIfFinal(Set<NFAState> current){
         boolean retVal = false;
         for(NFAState currentState: this.finalStates){
